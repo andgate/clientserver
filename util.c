@@ -5,7 +5,6 @@
 #include "util.h"
 
 #define BUFFER_CAP 1024
-
 #define SPACE_DELIM " \n\r\t"
 
 Config readConfig()
@@ -31,12 +30,10 @@ Config readConfig()
 		exit(EXIT_FAILURE);
     }
 
-    printf("Contents: %s\n", contents);
-
     Config cfg;
-    cfg.ip = strtok(fileBuffer, SPACE_DELIM);
-    cfg.port = strtok(NULL, SPACE_DELIM);
-    cfg.timeout = strtok(NULL, SPACE_DELIM);
+    cfg.ip      = strtok(contents, SPACE_DELIM);
+    cfg.port    = atoi( strtok(NULL, SPACE_DELIM) );
+    cfg.timeout = atoi( strtok(NULL, SPACE_DELIM) );
 
 	return cfg;
 }

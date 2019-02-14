@@ -9,8 +9,8 @@ int main(int argc, char *argv[])
 	Config cfg = readConfig();
 
 	printf("IP: %s\n", cfg.ip);
-	printf("Port: %s\n", cfg.port);
-	printf("Timeout: %s\n", cfg.timeout);
+	printf("Port: %d\n", cfg.port);
+	printf("Timeout: %d\n", cfg.timeout);
 
-	return 0;
+	return EXIT_SUCCESS;
 }

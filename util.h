@@ -4,9 +4,9 @@
 #define CONFIG_PATH "config.txt"
 
 typedef struct Config {
-    char* ip;
-    char* port;
-    char* timeout;
+	char* ip;
+	int port;
+	int timeout;
 } Config;
 
 Config readConfig();
