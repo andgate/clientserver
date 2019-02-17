@@ -1,5 +1,5 @@
-#ifndef _UTIL_H_
-#define _UTIL_H_
+#ifndef _CONFIG_H_
+#define _CONFIG_H_
 
 #define CONFIG_PATH "config.ini"
 
@@ -11,4 +11,4 @@ typedef struct Config {
 
 Config readConfig();
 
-#endif
+#endif // _CONFIG_H_

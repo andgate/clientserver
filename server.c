@@ -5,19 +5,27 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 
 #include "table.h"
-#include "util.h"
+#include "config.h"
 
-#define MAX_THREADS 1000
+#define DEFAULT_ROWS 10
+#define DEFAULT_COLUMNS 10
+#define DEFAULT_PORT 8080
 
 
 void* client_handler(void* client_fd_ptr);
 void client_cleanup(void* client_fd_ptr);
 
-void seat_available_msg(int fd);
-void seat_reserved_msg(int fd);
-void seat_does_not_exist_msg(int fd);
+void seat_table_full_msg(int fd);
+void seat_available_msg(int fd, int row, int col);
+void seat_reserved_msg(int fd, int row, int col);
+void seat_does_not_exist_msg(int fd, int row, int col);
+
+int random_num(int min, int max) {
+	return (rand() % (max - min + 1)) + min;
+}
 
 typedef struct client_session {
 	int socket_fd;
@@ -29,19 +37,24 @@ typedef struct client_session {
 
 int main(int argc, char* argv[])
 {
-	if (argc < 3) {
-		fprintf(stderr, "Not enough arguments.\n");
-		exit(EXIT_FAILURE);
+	srand(time(0));
+	int port = DEFAULT_PORT;
+	int rows = DEFAULT_ROWS;
+	int cols = DEFAULT_COLUMNS;
+	
+	if (argc >= 3) {
+		rows = atoi(argv[1]);
+		cols = atoi(argv[2]);
 	}
 
-	int rows = atoi(argv[1]);
-	int cols = atoi(argv[2]);
 	table_t table = new_table(rows, cols);
+
+	if (argc >= 4) {
+		port = atoi(argv[3]);
+	}
 
 	// dump_table(table);
 	display_table(table);
-
-	Config cfg = readConfig();
 
 	int server_fd;
     int opt = 1;
@@ -65,7 +78,7 @@ int main(int argc, char* argv[])
     int addrlen = sizeof(address); 
     address.sin_family = AF_INET; 
     address.sin_addr.s_addr = INADDR_ANY; 
-    address.sin_port = htons(cfg.port); 
+    address.sin_port = htons(port); 
        
     // Forcefully attaching socket to the port 8080
 	int bind_result = bind(server_fd, (struct sockaddr*)&address, sizeof(address));
@@ -125,6 +138,11 @@ void* client_handler(void* session_vptr)
 
 	pthread_cleanup_push(client_cleanup, session_vptr);
 
+	char out_buffer[256];
+	sprintf(out_buffer, "%dx%d", session->seat_table->dim.rows, session->seat_table->dim.cols);
+	send(session->socket_fd, out_buffer, strlen(out_buffer), 0);
+	puts("Sent client the table size");
+
 	while (1) 
 	{
 		char input_buffer[1024] = {0}; 
@@ -133,31 +151,30 @@ void* client_handler(void* session_vptr)
 		// If client disconnect, exit gracefully.	
 		if(valread == 0) break;
 
-		//printf("%s\n", buffer);
-		// Either this is a request for the seat size,
-		// or this is a request for a specifc seat
-
-		if (strcmp(input_buffer, "size\n") == 0)
+		int x;
+		int y;
+		if (strcmp(input_buffer, "random\n") == 0)
 		{
-			char out_buffer[256];
-			sprintf(out_buffer, "%dx%d", session->seat_table->dim.rows, session->seat_table->dim.cols);
-			send(session->socket_fd, out_buffer, strlen(out_buffer), 0);
-			puts("Sent client the table size");
-			continue;
+			x = random_num(1, session->seat_table->dim.cols);
+			y = random_num(1, session->seat_table->dim.rows);
+		}
+		else
+		{
+			// Parse the given input as coordinates
+			coords_parse_result res = table_read_coords(input_buffer);
+			if (res.err == COORDS_PARSE_FAILURE)
+			{
+				char msg[] = "Unable to parse coordinates.\nCoordinates should be in the following format: <column>x<row>\n";
+				send(session->socket_fd, msg, strlen(msg), 0);
+				puts("Client entered invalid coords and has been notified.");
+				continue;
+			}
+
+			x = res.x;
+			y = res.y;
 		}
 
-		// Parse the given input as coordinates
-		coords_parse_result res = table_read_coords(input_buffer);
-		if (res.err == COORDS_PARSE_FAILURE)
-		{
-			char msg[] = "Unable to parse coordinates.\nCoordinates should be in the following format: <column>x<row>\n";
-			send(session->socket_fd, msg, strlen(msg), 0);
-			puts("Client entered invalid coords and has been notified.");
-			continue;
-		}
-
-		int x = res.x;
-		int y = res.y;
+		
 		printf("Client requested seat %dx%d\n", x, y);
 
 
@@ -166,26 +183,26 @@ void* client_handler(void* session_vptr)
 		pthread_mutex_lock(session->table_mutex);
 		printf("Thread %ld has locked the table mutex\n", session->thread_id);
 
-		//int x = res.x;
-		//int y = res.y;
-		//printf("Client requested seat %dx%d", x, y);
 
-		switch(check_seat(*session->seat_table, x, y))
-		{
-			case SEAT_AVAILABLE:
-				reserve_seat(*session->seat_table, x, y);
-				seat_available_msg(session->socket_fd);
-				display_table(*session->seat_table);
-				break;
-			case SEAT_RESERVED:
-				seat_reserved_msg(session->socket_fd);
-				break;
-			case SEAT_DOES_NOT_EXIST:
-				seat_does_not_exist_msg(session->socket_fd);
-				break;
-			default:
-				// notify user
-				break;
+		if (isFull(*session->seat_table)) {
+			seat_table_full_msg(session->socket_fd);
+		} else {
+
+			switch(check_seat(*session->seat_table, x, y))
+			{
+				case SEAT_AVAILABLE:
+					reserve_seat(*session->seat_table, x, y);
+					seat_available_msg(session->socket_fd, x, y);
+					display_table(*session->seat_table);
+					break;
+				case SEAT_RESERVED:
+					seat_reserved_msg(session->socket_fd, x, y);
+					break;
+				case SEAT_DOES_NOT_EXIST:
+				default:
+					seat_does_not_exist_msg(session->socket_fd, x, y);
+					break;
+			}
 		}
 
 		pthread_mutex_unlock(session->table_mutex);
@@ -198,23 +215,33 @@ void* client_handler(void* session_vptr)
 	pthread_exit(EXIT_SUCCESS);
 }
 
-void seat_available_msg(int socket_fd)
+void seat_table_full_msg(int socket_fd)
 {
-	char msg[] = "Seat was available and has been reserved for you.\n";
+	char msg[] = "No more seats are available.\n";
+	send(socket_fd, msg, strlen(msg), 0);
+	puts("No seats available and client was notified.");
+}
+
+void seat_available_msg(int socket_fd, int row, int col)
+{
+	char msg[1024];
+	sprintf(msg, "Seat (%d, %d) was available and has been reserved for you.\n", row, col);
 	send(socket_fd, msg, strlen(msg), 0);
 	puts("Seat was available and has been reserved for the client.");
 }
 
-void seat_reserved_msg(int socket_fd)
+void seat_reserved_msg(int socket_fd, int row, int col)
 {
-	char msg[] = "Seat was reserved. Please try a different seat.\n";
+	char msg[1024];
+	sprintf(msg, "Seat (%d, %d) was reserved. Please try a different seat.\n", row, col);
 	send(socket_fd, msg, strlen(msg), 0);
 	puts("Seat was reserved and client was notified.");
 }
 
-void seat_does_not_exist_msg(int socket_fd)
+void seat_does_not_exist_msg(int socket_fd, int row, int col)
 {
-	char msg[] = "Seat specified does not exist. Please try a seat within bounds.\n";
+	char msg[1025];
+	sprintf(msg, "Seat (%d, %d) does not exist. Please try a seat within bounds.\n", row, col);
 	send(socket_fd, msg, strlen(msg), 0);
 	puts("Seat did not exist and client was notified.");
 }

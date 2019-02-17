@@ -78,11 +78,11 @@ coords_parse_result table_read_coords(char* str)
 	res.y = -1;
 	res.err = COORDS_PARSE_FAILURE;
 
-	char* tok = strtok(str, "x ");
+	char* tok = strtok(str, " ");
 	if (tok == NULL) return res;
 	res.x = atoi(tok);
 	
-	tok = strtok(str, "x ");
+	tok = strtok(NULL, " ");
 	if (tok == NULL) return res;
 	res.y = atoi(tok);
 
@@ -110,4 +110,19 @@ void reserve_seat(table_t table, int x, int y)
 		return;
 
 	table.data[x-1][y-1] = SEAT_RESERVED;
+}
+
+int isFull(table_t table)
+{
+	int p = 1;
+
+	for(int i = 0; i < table.dim.rows; ++i)
+	{
+		for (int j = 0; j < table.dim.rows; ++j)
+		{
+			p &= table.data[i][j];
+		}
+	}
+
+	return p;
 }

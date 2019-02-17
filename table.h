@@ -40,5 +40,6 @@ coords_parse_result table_read_coords(char* str);
 
 int check_seat(table_t table, int x, int y);
 void reserve_seat(table_t table, int x, int y);
+int isFull(table_t table);
 
 #endif
