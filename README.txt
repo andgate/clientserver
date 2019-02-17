@@ -1,6 +1,6 @@
 -- Running a server
 The command to run the server is
-server <rows> <colows>
+server <rows> <columns>
 
 Where rows and columns specify the size of the plane ticket table.
 

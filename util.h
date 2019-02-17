@@ -1,7 +1,7 @@
 #ifndef _UTIL_H_
 #define _UTIL_H_
 
-#define CONFIG_PATH "config.txt"
+#define CONFIG_PATH "config.ini"
 
 typedef struct Config {
 	char* ip;
