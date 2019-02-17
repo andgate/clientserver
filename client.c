@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 		// Ask the user what seat they want
 		// Optionally, the user may input an exit command
 		char send_buffer[256];
-		puts("What seat would you like: ");
+		puts("What seat would you like? Please enter as \"<x> <y>\": ");
 		fgets(send_buffer, sizeof(send_buffer), stdin);
 
 		if (strcmp(send_buffer, "exit\n") == 0) break;

@@ -71,11 +71,43 @@ void dump_table(table_t table)
 }
 
 
-table_dim table_read_dim(char* str)
+coords_parse_result table_read_coords(char* str)
 {
-	table_dim dim;
-	dim.rows = atoi(strtok(str, "x"));
-	dim.cols = atoi(strtok(NULL, "x"));
+	coords_parse_result res;
+	res.x = -1;
+	res.y = -1;
+	res.err = COORDS_PARSE_FAILURE;
 
-	return dim;
+	char* tok = strtok(str, "x ");
+	if (tok == NULL) return res;
+	res.x = atoi(tok);
+	
+	tok = strtok(str, "x ");
+	if (tok == NULL) return res;
+	res.y = atoi(tok);
+
+	res.err = COORDS_PARSE_SUCCESS;
+	return res;
+}
+
+int check_seat(table_t table, int x, int y)
+{
+	if (y <= 0 || y > table.dim.rows)
+		return SEAT_DOES_NOT_EXIST;
+	
+	if (x <= 0 || x > table.dim.cols)
+		return SEAT_DOES_NOT_EXIST;
+
+	return table.data[x-1][y-1];
+}
+
+void reserve_seat(table_t table, int x, int y)
+{
+	if (y <= 0 || y > table.dim.rows)
+		return;
+	
+	if (x <= 0 || x > table.dim.cols)
+		return;
+
+	table.data[x-1][y-1] = SEAT_RESERVED;
 }
